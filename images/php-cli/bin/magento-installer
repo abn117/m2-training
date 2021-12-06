@@ -1,0 +1,146 @@
+#!/bin/bash
+
+[ "$DEBUG" = "true" ] && set -x
+
+AUTH_JSON_FILE="$(composer -g config data-dir 2>/dev/null)/auth.json"
+
+if [ -f "$AUTH_JSON_FILE" ]; then
+    # Get composer auth information into an environment variable to avoid "you need
+    # to be using an interactive terminal to authenticate".
+    COMPOSER_AUTH=`cat $AUTH_JSON_FILE`
+fi
+
+MAGENTO_COMMAND="magento"
+
+if [ ! -f "$MAGENTO_ROOT/composer.json" ]; then
+    echo "Creating Magento $EDITION ($VERSION) project from composer"
+
+    rm -rf $MAGENTO_ROOT
+
+    composer create-project \
+        --repository-url=https://repo.magento.com/ \
+        magento/project-$EDITION=$VERSION \
+        --no-interaction \
+        $MAGENTO_ROOT
+
+    if [ "$USE_SAMPLE_DATA" = "true" ]; then
+        composer suggest -d $MAGENTO_ROOT --no-dev --list --all \
+            | grep "magento/" | grep "sample-data" \
+            | xargs -i echo {}:$SAMPLE_DATA_VERSION \
+            | xargs -r composer require -d $MAGENTO_ROOT
+    fi
+
+    # Magento forces Composer to use $MAGENTO_ROOT/var/composer_home as the home directory
+    # when running any Composer commands through Magento, e.g. sampledata:deploy, so copy the
+    # credentials over to it to prevent Composer from asking for them again
+    if [ -f "$AUTH_JSON_FILE" ]; then
+        mkdir -p $MAGENTO_ROOT/var/composer_home
+        cp $AUTH_JSON_FILE $MAGENTO_ROOT/var/composer_home/auth.json
+    fi
+else
+    echo "Magento installation found in $MAGENTO_ROOT, installing composer dependencies"
+    composer --working-dir=$MAGENTO_ROOT install
+
+    # Remove env.php file if it exists, otherwise the installation would fail
+    if [ "$INSTALL_DB" = "true" ]; then
+        rm -f $MAGENTO_ROOT/app/etc/env.php
+    fi
+fi
+
+chown -R www-data:www-data $MAGENTO_ROOT
+
+if [ "$INSTALL_DB" = "true" ]; then
+    echo "Install Magento $EDITION ($VERSION)"
+
+    INSTALL_COMMAND="$MAGENTO_COMMAND setup:install \
+        --db-host=$DB_HOST \
+        --db-name=$DB_NAME \
+        --db-user=$DB_USER \
+        --db-password=$DB_PASSWORD \
+        --elasticsearch-host=$ELASTICSEARCH_HOST \
+        --base-url=$BASE_URL \
+        --base-url-secure=$SECURE_BASE_URL \
+        --use-secure=$USE_SECURE \
+        --use-secure-admin=$USE_SECURE_ADMIN \
+        --use-rewrites=$USE_REWRITES
+        --backend-frontname=$BACKEND_FRONTNAME \
+        --admin-firstname=$ADMIN_FIRSTNAME \
+        --admin-lastname=$ADMIN_LASTNAME \
+        --admin-email=$ADMIN_EMAIL \
+        --admin-user=$ADMIN_USER \
+        --admin-password=$ADMIN_PASSWORD \
+        --language=$LANGUAGE \
+        --currency=$CURRENCY"
+
+    if [ -n "$ENCRYPTION_KEY" ]; then
+        INSTALL_COMMAND="$INSTALL_COMMAND \
+            --key=$ENCRYPTION_KEY"
+    fi
+
+    if [ -n "$CACHE_PREFIX" ]; then
+        INSTALL_COMMAND="$INSTALL_COMMAND \
+            --cache-id-prefix=$CACHE_PREFIX \
+            --page-cache-id-prefix=$CACHE_PREFIX"
+    fi
+
+    if [ "$USE_REDIS_CACHE" = "true" ]; then
+        INSTALL_COMMAND="$INSTALL_COMMAND \
+            --cache-backend=redis \
+            --cache-backend-redis-server=$REDIS_CACHE_HOST \
+            --cache-backend-redis-port=$REDIS_CACHE_PORT \
+            --cache-backend-redis-db=$REDIS_CACHE_DB"
+    fi
+
+    if [ "$USE_REDIS_SESSIONS" = "true" ]; then
+        INSTALL_COMMAND="$INSTALL_COMMAND \
+            --session-save=redis \
+            --session-save-redis-host=$REDIS_SESSIONS_HOST \
+            --session-save-redis-port=$REDIS_SESSIONS_PORT \
+            --session-save-redis-db=$REDIS_SESSIONS_DB \
+            --session-save-redis-log-level=$REDIS_SESSIONS_LOG_LEVEL"
+    fi
+
+    if [ "$USE_VARNISH" = "true" ]; then
+        INSTALL_COMMAND="$INSTALL_COMMAND \
+            --http-cache-hosts=$HTTP_CACHE_HOSTS"
+    fi
+
+    $INSTALL_COMMAND
+
+    # Disable two-factor authentication when developer mode is enabled
+    if [ "$MAGENTO_RUN_MODE" = "developer" ]; then
+        $MAGENTO_COMMAND module:disable Magento_TwoFactorAuth
+    fi
+
+    # Set up Varnish
+    if [ "$USE_VARNISH" = "true" ]; then
+        $MAGENTO_COMMAND config:set --scope=default --scope-code=0 system/full_page_cache/caching_application 2
+        $MAGENTO_COMMAND config:set --scope=default --scope-code=0 system/full_page_cache/varnish/access_list $VARNISH_ACCESS_LIST
+        $MAGENTO_COMMAND config:set --scope=default --scope-code=0 system/full_page_cache/varnish/backend_host $VARNISH_BACKEND_HOST
+        $MAGENTO_COMMAND config:set --scope=default --scope-code=0 system/full_page_cache/varnish/backend_port $VARNISH_BACKEND_PORT
+    fi
+
+    if [ "$MAGENTO_RUN_MODE" = "production" ]; then
+        $MAGENTO_COMMAND setup:di:compile
+        $MAGENTO_COMMAND cache:clean
+    fi
+
+    if [ "$USE_SAMPLE_DATA" = "true" ]; then
+        $MAGENTO_COMMAND indexer:reindex
+    fi
+
+    if [ "$MAGENTO_RUN_MODE" = "production" ]; then
+        $MAGENTO_COMMAND setup:static-content:deploy -f en_US ${LANGUAGE}
+    fi
+else
+    echo "Skipping DB installation"
+fi
+
+find $MAGENTO_ROOT/pub -type f -exec chmod 664 {} \;
+find $MAGENTO_ROOT/pub -type d -exec chmod 775 {} \;
+find $MAGENTO_ROOT/generated -type d -exec chmod g+s {} \;
+find $MAGENTO_ROOT/var/composer_home -type f -exec chmod 664 {} \;
+
+chown -R www-data:www-data $MAGENTO_ROOT
+
+echo "Installation complete"

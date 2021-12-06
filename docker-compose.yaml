@@ -1,0 +1,120 @@
+version: '2'
+
+services:
+    # Reverse proxy 443 -> varnish
+    ssl:
+        build: images/ssl
+        ports:
+            - 8443:443
+        depends_on:
+            - varnish
+
+    # Varnish on port 80 -> redirects to web container when page is not cached
+    # Not using a magento cloud image because in last image they changed the backend port
+    varnish:
+        image: varnish:6.5
+        ports:
+            - 8080:80
+        volumes:
+            - ./images/varnish/etc/default.vcl:/etc/varnish/default.vcl
+        depends_on:
+            - web
+
+    web:
+        build: images/nginx
+        ports:
+            - 80
+        env_file: env/global.env
+        depends_on:
+            - fpm
+        volumes:
+            - appdata:/app
+
+    fpm:
+        # Not using a magento cloud image because xdebug implementation is bad
+        build: images/php-fpm
+        ports:
+            - 9000
+        env_file: env/global.env
+        depends_on:
+            - db
+            - mailhog
+        volumes:
+            - appdata:/app
+
+    cli:
+        # Not using a magento cloud image because xdebug implementation is bad
+        build: images/php-cli
+        command: run-cron
+        env_file:
+            - env/composer.env
+            - env/global.env
+            - env/magento-setup.env
+        depends_on:
+            - db
+            - mailhog
+            - redis-cache
+            - redis-sessions
+            - elasticsearch
+        volumes:
+            - appdata:/app
+            - $HOME/.cache/composer:/root/.composer/cache
+
+    db:
+        image: mariadb:10.4
+        ports:
+            - 3306
+        env_file: env/database.env
+        volumes:
+            - dbdata:/var/lib/mysql
+
+    elasticsearch:
+        image: magento/magento-cloud-docker-elasticsearch:7.9-1.2.4
+        ulimits:
+            memlock:
+                soft: -1
+                hard: -1
+        environment:
+            - discovery.type=single-node
+            - xpack.security.enabled=false
+            - xpack.monitoring.enabled=false
+            - xpack.ml.enabled=false
+            - xpack.graph.enabled=false
+            - xpack.watcher.enabled=false
+        ports:
+            - 9200
+
+    redis-cache:
+        image: redis:6.0
+        ports:
+            - 6379
+        volumes:
+            - /data
+
+    redis-sessions:
+        image: redis:6.0
+        ports:
+            - 6379
+        volumes:
+            - /data
+
+    node:
+        image: node
+        working_dir: /app
+        volumes:
+            - appdata:/app
+
+    mailhog:
+        image: mailhog/mailhog:latest
+        ports:
+            - 1025
+            - 8100:8025
+
+volumes:
+    appdata:
+        driver: local
+        driver_opts:
+            type: none
+            o: bind
+            device: ${PWD}/magento
+    dbdata:
