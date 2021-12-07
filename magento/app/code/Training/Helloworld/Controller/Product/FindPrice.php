@@ -11,6 +11,7 @@ use Magento\Framework\Pricing\PriceCurrencyInterface;
 use Magento\Framework\Controller\ResultFactory;
 use Magento\Framework\Controller\Result\Raw as RawResult;
 use Magento\Framework\App\Action\Context;
+use Magento\Framework\Data\Collection;
 
 class FindPrice extends Action implements HttpGetActionInterface
 {
@@ -32,16 +33,20 @@ class FindPrice extends Action implements HttpGetActionInterface
     {
         $prds = [];
         $productCollection = $this->productFactory->create();
-        $productCollection->addAttributeToFilter('price', ['gt' => '30']);
-        
+        $productCollection
+            ->addAttributeToFilter('price', ['gt' => '30'])
+            ->setPageSize(10)
+            ->setOrder('name', Collection::SORT_ORDER_ASC);
+
         $filteredProducts = $productCollection->getItems();
+
         dump($filteredProducts);die();
 
         foreach ($filteredProducts as $product) {
-            $prds[] = $product->getName();
+            $price = $this->priceCurrency->format($product->getPrice())
+            // $prds[] = $product->getName();
         }
-        
-        // $res = "rien";
+
 
         /** @var RawResult $result */
         $productResults = $this->resultFactory->create(ResultFactory::TYPE_RAW);
