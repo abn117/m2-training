@@ -39,20 +39,17 @@ class ApiSearch extends Action implements HttpGetActionInterface
         $sorted = $this->sortOrderBuilder
             ->setField('name')
             ->setDescendingDirection()
-            ->create()
-        ;
+            ->create();
         $searchByCriteria = $this->searchCriteriaBuilder
             ->addFilter('description', '%comfortable%', 'like')
-        //    ->addFilter('name', '%bruno', 'like')
-           ->addSortOrder($sorted)
+            ->addSortOrder($sorted)
             ->setPageSize(6)
             ->setCurrentPage(1)
-            ->create()
-        ;
+            ->create();
         $items = $this->productRepository->getList($searchByCriteria)->getItems();
 
         foreach ($items as $product) {
-            echo $product->getDescription().''. $product->getName();
+            echo $product->getDescription() . '' . $product->getName();
         }
 
         /** @var RawResult $result */

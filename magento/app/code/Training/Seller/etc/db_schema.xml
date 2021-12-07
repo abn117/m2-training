@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Setup/Declaration/Schema/etc/schema.xsd">
+	<table name="training_seller" resource="default" engine="innodb" comment="Catalog Product Table">
+		<column xsi:type="int" name="seller_id" unsigned="true" nullable="false" identity="true" comment="Seller ID" />
+		<column xsi:type="smallint" name="identifier" unsigned="true" nullable="false" identity="false" default="0" comment="Attribute Set ID" />
+		<column xsi:type="varchar" name="name" nullable="false" length="32" default="simple" comment="Name" />
+		<column xsi:type="timestamp" name="created_at" on_update="false" nullable="false" default="CURRENT_TIMESTAMP" comment="Creation Time" />
+		<column xsi:type="timestamp" name="updated_at" on_update="true" nullable="false" default="CURRENT_TIMESTAMP" comment="Update Time" />
+		<constraint xsi:type="primary" referenceId="PRIMARY">
+			<column name="seller_id" />
+		</constraint>
+	</table>
+</schema>
