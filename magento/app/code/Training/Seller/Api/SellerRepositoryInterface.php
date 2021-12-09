@@ -54,4 +54,6 @@ interface SellerRepositoryInterface
      * @throws \Magento\Framework\Exception\LocalizedException
      */
     public function deleteById($sellerId);
+
+    public function getByIdentifier($identifier);
 }
