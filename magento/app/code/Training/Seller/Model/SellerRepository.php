@@ -3,49 +3,46 @@
 
 namespace Training\Seller\Model;
 
-use Magento\Framework\Api\SearchCriteria\CollectionProcessorInterface;
-use Training\Seller\Api\Data\SellerInterface;
 use Training\Seller\Model\ResourceModel\Seller as ResourceSeller;
-use Training\Seller\Api\Data\SellerInterfaceFactory;
-use Magento\Framework\Api\DataObjectHelper;
-use Training\Seller\Api\SellerRepositoryInterface;
-use Magento\Framework\Reflection\DataObjectProcessor;
-use Training\Seller\Model\ResourceModel\Seller\CollectionFactory as SellerCollectionFactory;
-use Training\Seller\Api\Data\SellerSearchResultsInterfaceFactory;
-use Magento\Store\Model\StoreManagerInterface;
 use Magento\Framework\Exception\NoSuchEntityException;
+use Magento\Framework\Reflection\DataObjectProcessor;
 use Magento\Framework\Exception\CouldNotSaveException;
-use Magento\Framework\Api\ExtensibleDataObjectConverter;
-use Magento\Framework\Api\ExtensionAttribute\JoinProcessorInterface;
+use Training\Seller\Api\Data\SellerInterfaceFactory;
+use Training\Seller\Api\Data\SellerSearchResultsInterfaceFactory;
 use Magento\Framework\Exception\CouldNotDeleteException;
+use Magento\Store\Model\StoreManagerInterface;
+use Training\Seller\Api\SellerRepositoryInterface;
+use Magento\Framework\Api\ExtensionAttribute\JoinProcessorInterface;
+use Magento\Framework\Api\SearchCriteria\CollectionProcessorInterface;
+use Magento\Framework\Api\DataObjectHelper;
+use Training\Seller\Model\ResourceModel\Seller\CollectionFactory as SellerCollectionFactory;
+use Magento\Framework\Api\ExtensibleDataObjectConverter;
 
 class SellerRepository implements SellerRepositoryInterface
 {
 
-    protected $dataObjectHelper;
-
-    protected $dataSellerFactory;
-
     protected $extensibleDataObjectConverter;
-    protected $resource;
-
-    protected $storeManager;
-
     protected $sellerFactory;
 
-    protected $searchResultsFactory;
+    protected $dataObjectHelper;
 
     private $collectionProcessor;
 
+    protected $dataSellerFactory;
+
     protected $sellerCollectionFactory;
 
-    protected $extensionAttributesJoinProcessor;
+    protected $resource;
 
     protected $dataObjectProcessor;
 
-    protected array $cacheById = [];
+    private $storeManager;
 
-    protected array $cacheByIdentifier = [];
+    protected $searchResultsFactory;
+
+    protected $extensionAttributesJoinProcessor;
+
+
     /**
      * @param ResourceSeller $resource
      * @param SellerFactory $sellerFactory
@@ -95,15 +92,15 @@ class SellerRepository implements SellerRepositoryInterface
             $storeId = $this->storeManager->getStore()->getId();
             $seller->setStoreId($storeId);
         } */
-
+        
         $sellerData = $this->extensibleDataObjectConverter->toNestedArray(
             $seller,
             [],
             \Training\Seller\Api\Data\SellerInterface::class
         );
-
+        
         $sellerModel = $this->sellerFactory->create()->setData($sellerData);
-
+        
         try {
             $this->resource->save($sellerModel);
         } catch (\Exception $exception) {
@@ -135,22 +132,22 @@ class SellerRepository implements SellerRepositoryInterface
         \Magento\Framework\Api\SearchCriteriaInterface $criteria
     ) {
         $collection = $this->sellerCollectionFactory->create();
-
+        
         $this->extensionAttributesJoinProcessor->process(
             $collection,
             \Training\Seller\Api\Data\SellerInterface::class
         );
-
+        
         $this->collectionProcessor->process($criteria, $collection);
-
+        
         $searchResults = $this->searchResultsFactory->create();
         $searchResults->setSearchCriteria($criteria);
-
+        
         $items = [];
         foreach ($collection as $model) {
             $items[] = $model->getDataModel();
         }
-
+        
         $searchResults->setItems($items);
         $searchResults->setTotalCount($collection->getSize());
         return $searchResults;
@@ -181,27 +178,5 @@ class SellerRepository implements SellerRepositoryInterface
     public function deleteById($sellerId)
     {
         return $this->delete($this->getById($sellerId));
-    }
-
-    /**
-     * @inheritdoc
-     * @SuppressWarnings(PMD.StaticAccess)
-     */
-    public function getByIdentifier($identifier): SellerInterface
-    {
-        if (!isset($this->cacheByIdentifier[$identifier])) {
-            /** @var Seller $seller */
-            $seller = $this->sellerFactory->create();
-            $this->resource->load($seller, $identifier, SellerInterface::IDENTIFIER);
-
-            if (!$seller->getId()) {
-                throw NoSuchEntityException::singleField('identifier', $identifier);
-            }
-
-            $this->cacheById[$seller->getId()] = $seller;
-            $this->cacheByIdentifier[$identifier] = $seller;
-        }
-
-        return $this->cacheByIdentifier[$identifier];
     }
 }

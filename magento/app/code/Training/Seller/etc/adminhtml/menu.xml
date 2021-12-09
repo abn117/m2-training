@@ -1,12 +1,7 @@
-<?xml version="1.0"?>
-<!--
-/**
- * Copyright © Magento, Inc. All rights reserved.
- * See COPYING.txt for license details.
- */
--->
+<?xml version="1.0" ?>
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Backend:etc/menu.xsd">
-    <menu>
-        <add id="Magento_Catalog::training_seller" title="Sellers" translate="title" module="Magento_Catalog" sortOrder="10" parent="Magento_Catalog::inventory" action="seller/seller/index" resource="Training_Seller::manage"/>
-    </menu>
+	<menu>
+		<add id="Training::top_level" module="Training_Seller" resource="Magento_Backend::content" sortOrder="9999" title="Training"/>
+		<add action="training_seller/seller/index" id="Training_Seller::training_seller_seller" module="Training_Seller" parent="Training::top_level" resource="Magento_Backend::content" sortOrder="9999" title="Seller"/>
+	</menu>
 </config>

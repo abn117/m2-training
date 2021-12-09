@@ -6,11 +6,11 @@ namespace Training\Seller\Api\Data;
 interface SellerInterface extends \Magento\Framework\Api\ExtensibleDataInterface
 {
 
-    const SELLER_ID = 'seller_id';
     const IDENTIFIER = 'identifier';
-    const CREATED_AT = 'created_at';
     const NAME = 'name';
+    const CREATED_AT = 'created_at';
     const UPDATED_AT = 'updated_at';
+    const SELLER_ID = 'seller_id';
 
     /**
      * Get seller_id

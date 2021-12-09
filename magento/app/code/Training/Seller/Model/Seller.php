@@ -4,17 +4,17 @@
 namespace Training\Seller\Model;
 
 use Training\Seller\Api\Data\SellerInterface;
-use Training\Seller\Api\Data\SellerInterfaceFactory;
 use Magento\Framework\Api\DataObjectHelper;
+use Training\Seller\Api\Data\SellerInterfaceFactory;
 
 class Seller extends \Magento\Framework\Model\AbstractModel
 {
 
-    protected $_eventPrefix = 'training_seller';
     protected $sellerDataFactory;
 
     protected $dataObjectHelper;
 
+    protected $_eventPrefix = 'training_seller_seller';
 
     /**
      * @param \Magento\Framework\Model\Context $context
